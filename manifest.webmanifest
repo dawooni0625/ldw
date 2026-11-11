@@ -1,0 +1,15 @@
+{
+  "name": "점심 뭐먹지",
+  "short_name": "점심뭐먹지",
+  "description": "회사 근처 맛집 찾기 & 점심 메뉴 슬롯머신",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f5f7",
+  "theme_color": "#ff6b3d",
+  "lang": "ko",
+  "icons": [
+    { "src": "app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

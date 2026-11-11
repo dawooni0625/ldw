@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>점심 뭐먹지</title>
+  <meta name="description" content="회사 근처 맛집 찾기 & 점심 메뉴 슬롯머신">
+  <meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101114" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="점심 뭐먹지">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="app-icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // 시스템 다크모드를 토큰의 [data-theme="dark"]로 연결
+    (function () {
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      function apply() { document.documentElement.setAttribute('data-theme', mq.matches ? 'dark' : 'light'); }
+      apply();
+      if (mq.addEventListener) mq.addEventListener('change', apply);
+    })();
+  </script>
+</head>
+<body>
+  <div class="app">
+    <!-- 상단 -->
+    <header class="app-header">
+      <div class="app-header__row">
+        <h1 class="app-header__title" id="pageTitle">근처 맛집</h1>
+        <button type="button" class="icon-btn" id="refreshBtn" aria-label="새로고침">
+          <span class="icon icon-md icon-refresh"></span>
+        </button>
+      </div>
+      <button type="button" class="loc-bar" id="locBar" aria-haspopup="dialog">
+        <span class="icon icon-xs icon-map-pin"></span>
+        <span class="loc-bar__text" id="locText">위치 확인 중…</span>
+        <span class="loc-bar__radius" id="radiusText">500m</span>
+        <span class="icon icon-xs icon-chevron-down"></span>
+      </button>
+    </header>
+
+    <main class="app-main">
+      <!-- 탭 1: 근처 맛집 -->
+      <section class="panel" id="panel-list" role="tabpanel" aria-labelledby="tab-list">
+        <nav class="chips" id="chips" aria-label="카테고리"></nav>
+        <div class="list-meta" id="listMeta"></div>
+        <ul class="place-list" id="placeList"></ul>
+      </section>
+
+      <!-- 탭 2: 슬롯머신 -->
+      <section class="panel" id="panel-slot" role="tabpanel" aria-labelledby="tab-slot" hidden>
+        <div class="slot">
+          <div class="slot__machine">
+            <div class="slot__labels"><span>카테고리</span><span>메뉴</span><span>가게</span></div>
+            <div class="slot__reels">
+              <div class="reel"><div class="reel__strip" id="reel0"></div></div>
+              <div class="reel"><div class="reel__strip" id="reel1"></div></div>
+              <div class="reel"><div class="reel__strip" id="reel2"></div></div>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn--primary btn--lever" id="spinBtn">
+            <span class="icon icon-sm icon-refresh"></span>
+            <span id="spinLabel">레버 당기기</span>
+          </button>
+
+          <div class="result" id="result" hidden aria-live="polite"></div>
+
+          <details class="slot-opts">
+            <summary>
+              <span class="icon icon-xs icon-settings"></span>뽑기 옵션
+              <span class="slot-opts__count" id="candidateCount"></span>
+            </summary>
+            <div class="slot-opts__body">
+              <p class="slot-opts__label">이 카테고리는 빼고 돌리기</p>
+              <div class="chips chips--wrap" id="excludeChips"></div>
+              <label class="switch">
+                <input type="checkbox" id="optFavOnly">
+                <span>즐겨찾기한 곳만</span>
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="optRecent" checked>
+                <span>최근 일주일 안에 간 곳 제외</span>
+              </label>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <!-- 탭 3: 즐겨찾기 -->
+      <section class="panel" id="panel-fav" role="tabpanel" aria-labelledby="tab-fav" hidden>
+        <ul class="place-list" id="favList"></ul>
+      </section>
+    </main>
+
+    <!-- 하단 탭바 -->
+    <nav class="tabbar" role="tablist" aria-label="메뉴">
+      <button type="button" class="tabbar__item" role="tab" id="tab-list" aria-controls="panel-list" aria-selected="true" data-tab="list">
+        <span class="icon icon-md icon-list"></span><span>근처맛집</span>
+      </button>
+      <button type="button" class="tabbar__item" role="tab" id="tab-slot" aria-controls="panel-slot" aria-selected="false" data-tab="slot">
+        <span class="icon icon-md icon-layout-grid"></span><span>뽑기</span>
+      </button>
+      <button type="button" class="tabbar__item" role="tab" id="tab-fav" aria-controls="panel-fav" aria-selected="false" data-tab="fav">
+        <span class="icon icon-md icon-star"></span><span>즐겨찾기</span>
+      </button>
+    </nav>
+
+    <!-- 위치/반경 설정 시트 -->
+    <div class="sheet" id="sheet" hidden>
+      <div class="sheet__dim" data-close></div>
+      <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet__head">
+          <h2 id="sheetTitle">검색 위치 · 반경</h2>
+          <button type="button" class="icon-btn" data-close aria-label="닫기"><span class="icon icon-md icon-x"></span></button>
+        </div>
+        <p class="sheet__label">기준 위치</p>
+        <div class="seg" id="srcSeg">
+          <button type="button" data-src="gps" aria-pressed="true">현재 위치</button>
+          <button type="button" data-src="office" aria-pressed="false">회사 (저장)</button>
+        </div>
+        <button type="button" class="btn btn--ghost" id="saveOfficeBtn">
+          <span class="icon icon-xs icon-map-pin"></span>지금 위치를 회사로 저장
+        </button>
+        <p class="sheet__hint" id="officeHint"></p>
+        <p class="sheet__label">반경</p>
+        <div class="seg" id="radiusSeg">
+          <button type="button" data-r="300">300m</button>
+          <button type="button" data-r="500">500m</button>
+          <button type="button" data-r="1000">1km</button>
+          <button type="button" data-r="1500">1.5km</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" hidden></div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
