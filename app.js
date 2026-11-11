@@ -67,6 +67,7 @@
     spinBtn: $('spinBtn'), spinLabel: $('spinLabel'), result: $('result'),
     excludeChips: $('excludeChips'), optFavOnly: $('optFavOnly'), optRecent: $('optRecent'), candidateCount: $('candidateCount'),
     sheet: $('sheet'), srcSeg: $('srcSeg'), radiusSeg: $('radiusSeg'), saveOfficeBtn: $('saveOfficeBtn'), officeHint: $('officeHint'),
+    addrForm: $('addrForm'), addrInput: $('addrInput'), addrResults: $('addrResults'),
     toast: $('toast'), reels: [$('reel0'), $('reel1'), $('reel2')]
   };
 
@@ -200,13 +201,19 @@
 
   function getGps() {
     return new Promise(function (resolve, reject) {
-      if (DEMO) { resolve({ lat: 37.5663, lng: 126.9779 }); return; }
+      if (!window.isSecureContext) { reject(new Error('GEO_INSECURE')); return; }
       if (!navigator.geolocation) { reject(new Error('NO_GEO')); return; }
-      navigator.geolocation.getCurrentPosition(function (pos) {
-        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-      }, function (err) {
-        reject(new Error(err && err.code === 1 ? 'GEO_DENIED' : 'GEO_FAIL'));
-      }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 });
+      function ask(high, timeout, onFail) {
+        navigator.geolocation.getCurrentPosition(function (pos) {
+          resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        }, function (err) {
+          if (err && err.code === 1) reject(new Error('GEO_DENIED'));
+          else if (onFail) onFail();
+          else reject(new Error('GEO_FAIL'));
+        }, { enableHighAccuracy: high, timeout: timeout, maximumAge: 120000 });
+      }
+      // 실내에서 정밀 위치가 안 잡히면 대략적인 위치로 한 번 더 시도
+      ask(true, 10000, function () { ask(false, 15000); });
     });
   }
 
@@ -221,7 +228,14 @@
 
     var getCenter = state.src === 'office' && state.office
       ? Promise.resolve(state.office)
-      : getGps();
+      : getGps().catch(function (e) {
+          // GPS 실패 시 저장된 회사 위치가 있으면 그걸로 대신 검색
+          if (!state.office) throw e;
+          toast('현재 위치를 못 받아서 회사 위치로 찾았어요');
+          state.src = 'office';
+          store.set('src', 'office');
+          return state.office;
+        });
 
     getCenter.then(function (c) {
       state.center = c;
@@ -241,7 +255,7 @@
 
   // ---------- 렌더: 상단 ----------
   function renderLoc() {
-    var src = state.src === 'office' && state.office ? '회사' : '현재 위치';
+    var src = state.src === 'office' && state.office ? (state.office.name ? '회사(' + state.office.name + ')' : '회사') : '현재 위치';
     var txt = state.loading && !state.center ? '위치 확인 중…' : src + (state.regionName ? ' · ' + state.regionName : '');
     els.locText.textContent = txt;
     els.radiusText.textContent = fmtDist(state.radius);
@@ -281,17 +295,29 @@
     '</li>';
   }
 
-  function emptyHtml(icon, title, desc, btn) {
+  function emptyHtml(icon, title, desc, btns) {
+    btns = btns ? [].concat(btns) : [];
     return '<li class="empty"><span class="icon icon-xl ' + icon + '"></span><strong>' + title + '</strong><span>' + desc + '</span>' +
-      (btn ? '<button type="button" class="btn btn--ghost" data-action="' + btn.action + '">' + btn.label + '</button>' : '') + '</li>';
+      btns.map(function (b, i) {
+        return '<button type="button" class="btn ' + (i === 0 && btns.length > 1 ? 'btn--primary' : 'btn--ghost') + '" data-action="' + b.action + '">' + b.label + '</button>';
+      }).join('') + '</li>';
   }
 
+  var ADDR_BTN = { action: 'addr', label: '회사 주소로 위치 정하기' };
+  var RETRY_BTN = { action: 'retry', label: '위치 다시 요청' };
   function errorHtml() {
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
     switch (state.error) {
       case 'GEO_DENIED':
-        return emptyHtml('icon-map-pin', '위치 권한이 필요해요', '브라우저 설정에서 이 사이트의 위치 권한을 허용해 주세요.<br>회사 위치를 저장해두면 권한 없이도 쓸 수 있어요.', { action: 'retry', label: '다시 시도' });
+        return emptyHtml('icon-map-pin', '위치 권한이 막혀 있어요',
+          (ios
+            ? '아이폰 설정 → 앱 → Safari → 위치를 "묻기"로,<br>설정 → 개인정보 보호 및 보안 → 위치 서비스 → Safari 웹사이트를 "앱을 사용하는 동안"으로 바꿔주세요.'
+            : '브라우저 설정에서 이 사이트의 위치 권한을 허용해 주세요.') +
+          '<br><br>권한 없이 쓰려면 회사 주소로 위치를 정해두세요.', [ADDR_BTN, RETRY_BTN]);
       case 'GEO_FAIL': case 'NO_GEO':
-        return emptyHtml('icon-map-pin', '위치를 찾지 못했어요', '실내라면 잠시 후 다시 시도해 주세요.', { action: 'retry', label: '다시 시도' });
+        return emptyHtml('icon-map-pin', '위치를 찾지 못했어요', '실내에서는 위치가 잘 안 잡힐 수 있어요.<br>회사 주소로 위치를 정해두면 바로 쓸 수 있어요.', [ADDR_BTN, RETRY_BTN]);
+      case 'GEO_INSECURE':
+        return emptyHtml('icon-map-pin', 'https 주소에서만 위치를 쓸 수 있어요', 'https:// 로 시작하는 주소로 접속하거나, 회사 주소로 위치를 정해주세요.', [ADDR_BTN]);
       case 'NO_KEY': case 'SDK': case 'SEARCH':
         return emptyHtml('icon-alert-triangle', '카카오 지도에 연결하지 못했어요', 'config.js의 키, 카카오맵 사용 설정(ON), 이 사이트 주소가 Web 도메인에 등록됐는지 확인해 주세요.', { action: 'retry', label: '다시 시도' });
       default:
@@ -458,8 +484,8 @@
       b.setAttribute('aria-pressed', String(+b.getAttribute('data-r') === state.radius));
     });
     els.officeHint.textContent = state.office
-      ? '회사 위치가 저장돼 있어요. 실내에서 GPS가 부정확할 때 "회사"를 선택하세요.'
-      : '회사에 있을 때 한 번 저장해두면, 다음부터 GPS 없이 회사 기준으로 찾을 수 있어요.';
+      ? '회사 위치가 저장돼 있어요' + (state.office.name ? ' (' + state.office.name + ')' : '') + '. 바꾸려면 다시 검색하세요.'
+      : '회사 위치를 한 번 정해두면 위치 권한 없이도 회사 기준으로 찾아줘요.';
   }
   function openSheet() { renderSheet(); els.sheet.hidden = false; }
   function closeSheet() { els.sheet.hidden = true; }
@@ -521,6 +547,7 @@
     var act = a.getAttribute('data-action');
     if (act === 'retry') load();
     else if (act === 'sheet') openSheet();
+    else if (act === 'addr') { openSheet(); setTimeout(function () { els.addrInput.focus(); }, 350); }
     else if (act === 'go' && state.lastPick) {
       state.visits[state.lastPick.id] = Date.now();
       store.set('visits', state.visits);
@@ -537,6 +564,15 @@
       if (v !== state.src) { state.src = v; store.set('src', v); state.regionName = ''; state.center = null; renderSheet(); load(); }
       return;
     }
+    var ad = e.target.closest('[data-addr]');
+    if (ad) {
+      var hit = addrHits[+ad.getAttribute('data-addr')];
+      setOffice({ lat: hit.lat, lng: hit.lng, name: hit.name });
+      els.addrResults.innerHTML = '';
+      els.addrInput.value = '';
+      closeSheet();
+      return;
+    }
     var r = e.target.closest('[data-r]');
     if (r) {
       var rv = +r.getAttribute('data-r');
@@ -547,17 +583,66 @@
     var btn = this;
     btn.disabled = true;
     getGps().then(function (c) {
-      state.office = c;
-      store.set('office', c);
-      state.src = 'office';
-      store.set('src', 'office');
-      renderSheet();
-      toast('📍 회사 위치를 저장했어요');
-      load();
+      setOffice(c);
     }).catch(function () {
-      toast('위치를 가져오지 못했어요. 위치 권한을 확인해 주세요.');
+      toast('위치를 가져오지 못했어요. 아래에서 회사 주소를 검색해 보세요.');
+      els.addrInput.focus();
     }).then(function () { btn.disabled = false; });
   });
+
+  function setOffice(c) {
+    state.office = c;
+    store.set('office', c);
+    state.src = 'office';
+    store.set('src', 'office');
+    state.center = null;
+    state.regionName = '';
+    renderSheet();
+    toast('📍 회사 위치를 저장했어요');
+    load();
+  }
+
+  // 회사 이름/주소 검색 → 회사 위치로 저장 (GPS 불필요)
+  var addrHits = [];
+  els.addrForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var q = els.addrInput.value.trim();
+    if (!q) return;
+    els.addrInput.blur();
+    els.addrResults.innerHTML = '<li class="addr-results__msg">검색 중…</li>';
+    searchAddr(q).then(function (hits) {
+      addrHits = hits;
+      els.addrResults.innerHTML = hits.length
+        ? hits.map(function (h, i) {
+            return '<li><button type="button" data-addr="' + i + '"><strong>' + esc(h.name) + '</strong><span>' + esc(h.addr) + '</span></button></li>';
+          }).join('')
+        : '<li class="addr-results__msg">검색 결과가 없어요. 건물 이름이나 도로명 주소로 다시 검색해 보세요.</li>';
+    }).catch(function () {
+      els.addrResults.innerHTML = '<li class="addr-results__msg">카카오 지도에 연결하지 못했어요. 카카오 개발자 사이트의 도메인 등록을 확인해 주세요.</li>';
+    });
+  });
+
+  function searchAddr(q) {
+    if (DEMO) return Promise.resolve([{ name: q + ' (데모)', addr: '데모시 데모구', lat: 37.5663, lng: 126.9779 }]);
+    return loadKakao().then(function () {
+      var S = kakao.maps.services.Status;
+      var kw = new Promise(function (resolve) {
+        new kakao.maps.services.Places().keywordSearch(q, function (data, status) {
+          resolve(status === S.OK ? data.map(function (d) {
+            return { name: d.place_name, addr: d.road_address_name || d.address_name, lat: +d.y, lng: +d.x };
+          }) : []);
+        }, { size: 6 });
+      });
+      var ad = new Promise(function (resolve) {
+        new kakao.maps.services.Geocoder().addressSearch(q, function (data, status) {
+          resolve(status === S.OK ? data.slice(0, 3).map(function (d) {
+            return { name: d.address_name, addr: (d.road_address && d.road_address.building_name) || '주소', lat: +d.y, lng: +d.x };
+          }) : []);
+        });
+      });
+      return Promise.all([ad, kw]).then(function (r) { return r[0].concat(r[1]); });
+    });
+  }
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !els.sheet.hidden) closeSheet(); });
 
   // 헤더 높이 → 카테고리 칩 sticky 위치

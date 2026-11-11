@@ -123,8 +123,14 @@
           <button type="button" data-src="gps" aria-pressed="true">현재 위치</button>
           <button type="button" data-src="office" aria-pressed="false">회사 (저장)</button>
         </div>
+        <form class="addr-search" id="addrForm" role="search">
+          <span class="icon icon-sm icon-search"></span>
+          <input type="search" id="addrInput" enterkeyhint="search" autocomplete="off" placeholder="회사 이름이나 주소로 위치 정하기" aria-label="회사 이름이나 주소 검색">
+          <button type="submit" class="addr-search__btn">검색</button>
+        </form>
+        <ul class="addr-results" id="addrResults"></ul>
         <button type="button" class="btn btn--ghost" id="saveOfficeBtn">
-          <span class="icon icon-xs icon-map-pin"></span>지금 위치를 회사로 저장
+          <span class="icon icon-xs icon-map-pin"></span>지금 GPS 위치를 회사로 저장
         </button>
         <p class="sheet__hint" id="officeHint"></p>
         <p class="sheet__label">반경</p>
