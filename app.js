@@ -68,6 +68,8 @@
     excludeChips: $('excludeChips'), optFavOnly: $('optFavOnly'), optRecent: $('optRecent'), candidateCount: $('candidateCount'),
     sheet: $('sheet'), srcSeg: $('srcSeg'), radiusSeg: $('radiusSeg'), saveOfficeBtn: $('saveOfficeBtn'), officeHint: $('officeHint'),
     addrForm: $('addrForm'), addrInput: $('addrInput'), addrResults: $('addrResults'),
+    detail: $('detail'), detailTitle: $('detailTitle'), detailMeta: $('detailMeta'), detailFrame: $('detailFrame'),
+    detailOpen: $('detailOpen'), detailShare: $('detailShare'),
     toast: $('toast'), reels: [$('reel0'), $('reel1'), $('reel2')]
   };
 
@@ -284,12 +286,14 @@
     var visited = state.visits[p.id];
     var vTxt = visited ? (daysAgo(visited) === 0 ? '오늘 방문' : daysAgo(visited) + '일 전') : '';
     return '<li class="place"><span class="place__thumb" aria-hidden="true">' + (CAT_EMOJI[p.cat] || '🍽️') + '</span>' +
-      '<a class="place__link" href="' + esc(p.url) + '" target="_blank" rel="noopener">' +
+      '<a class="place__link" href="' + esc(p.url) + '" target="_blank" rel="noopener" data-detail="' + esc(p.id) + '">' +
         '<span class="place__name">' + esc(p.name) + (vTxt ? '<span class="place__visited">' + vTxt + '</span>' : '') + '</span>' +
         '<span class="place__meta"><span>' + esc(p.cat) + ' · ' + esc(p.sub) + '</span>' +
           (p.dist != null ? '<span class="place__dist">' + fmtDist(p.dist) + ' · 도보 ' + walkMin(p.dist) + '분</span>' : '') + '</span>' +
         '<span class="place__addr">' + esc(p.addr) + '</span>' +
       '</a>' +
+      '<button type="button" class="fav-btn share-btn" data-share="' + esc(p.id) + '" aria-label="' + esc(p.name) + ' 링크 공유">' +
+        '<span class="icon icon-sm icon-share"></span></button>' +
       '<button type="button" class="fav-btn" data-fav="' + esc(p.id) + '" aria-pressed="' + fav + '" aria-label="' + (fav ? '즐겨찾기 해제' : '즐겨찾기') + '">' +
         '<span class="icon icon-md icon-star"></span></button>' +
     '</li>';
@@ -451,7 +455,8 @@
       '<p class="result__meta">' + esc(p.cat) + ' · ' + esc(p.sub) +
         (p.dist != null ? ' · 도보 ' + walkMin(p.dist) + '분 (' + fmtDist(p.dist) + ')' : '') + '</p>' +
       '<div class="result__actions">' +
-        '<a class="btn btn--ghost" href="' + esc(p.url) + '" target="_blank" rel="noopener"><span class="icon icon-xs icon-external-link"></span>카카오맵</a>' +
+        '<button type="button" class="btn btn--ghost" data-detail="' + esc(p.id) + '"><span class="icon icon-xs icon-list"></span>메뉴 보기</button>' +
+        '<button type="button" class="btn btn--ghost" data-share="' + esc(p.id) + '"><span class="icon icon-xs icon-share"></span>공유</button>' +
         '<button type="button" class="btn btn--ghost" data-fav="' + esc(p.id) + '" aria-pressed="' + fav + '"><span class="icon icon-xs icon-star"></span>' + (fav ? '즐겨찾기됨' : '즐겨찾기') + '</button>' +
         '<button type="button" class="btn btn--primary btn--full" data-action="go"' + (going ? ' disabled' : '') + '>' +
           '<span class="icon icon-xs icon-check"></span>' + (going ? '오늘 여기 가기로 했어요' : '여기 갈게요!') + '</button>' +
@@ -490,12 +495,75 @@
   function openSheet() { renderSheet(); els.sheet.hidden = false; }
   function closeSheet() { els.sheet.hidden = true; }
 
+  // ---------- 가게 상세 (메뉴) ----------
+  var detailPlace = null;
+  function openDetail(p) {
+    if (!p) return;
+    detailPlace = p;
+    var url = placeLink(p);
+    els.detailTitle.textContent = p.name;
+    els.detailMeta.textContent = p.cat + ' · ' + p.sub + (p.dist != null ? ' · 도보 ' + walkMin(p.dist) + '분 (' + fmtDist(p.dist) + ')' : '');
+    els.detailOpen.href = url;
+    els.detailFrame.src = url + '#menuInfo'; // 메뉴 탭으로 바로 열기
+    els.detail.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDetail() {
+    els.detail.hidden = true;
+    els.detailFrame.src = 'about:blank';
+    document.body.style.overflow = '';
+    detailPlace = null;
+  }
+
   // ---------- 즐겨찾기/방문 ----------
   function findPlace(id) {
     if (state.favs[id]) return state.favs[id];
     for (var i = 0; i < state.places.length; i++) if (state.places[i].id === id) return state.places[i];
     return state.lastPick && state.lastPick.id === id ? state.lastPick : null;
   }
+  // ---------- 공유 / 링크 복사 ----------
+  function placeLink(p) { return String(p.url || '').replace(/^http:/, 'https:'); }
+  function shareText(p) {
+    return '🍽️ 오늘 점심: ' + p.name + '\n' + p.cat + ' · ' + p.sub +
+      (p.dist != null ? ' · 도보 ' + walkMin(p.dist) + '분' : '') +
+      (p.addr ? '\n📍 ' + p.addr : '');
+  }
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).catch(function () { return legacyCopy(text); });
+    }
+    return legacyCopy(text);
+  }
+  function legacyCopy(text) {
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+      document.body.appendChild(ta);
+      ta.select(); ta.setSelectionRange(0, text.length);
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('copy'));
+    });
+  }
+  function sharePlace(p) {
+    if (!p) return;
+    var url = placeLink(p), text = shareText(p);
+    var copy = function () {
+      copyText(text + '\n' + url).then(function () {
+        toast('🔗 링크 복사 완료! 카톡에 붙여넣으세요');
+      }, function () { window.prompt('아래 내용을 길게 눌러 복사하세요', text + '\n' + url); });
+    };
+    // 휴대폰: 공유 시트(카카오톡·메시지 등) / 지원 안 하면 클립보드 복사
+    if (navigator.share && /Android|iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      navigator.share({ title: p.name, text: text, url: url }).catch(function (err) {
+        if (err && err.name === 'AbortError') return; // 사용자가 닫음
+        copy();
+      });
+    } else copy();
+  }
+
   function toggleFav(id) {
     if (state.favs[id]) { delete state.favs[id]; toast('즐겨찾기에서 뺐어요'); }
     else {
@@ -542,6 +610,10 @@
   document.addEventListener('click', function (e) {
     var f = e.target.closest('[data-fav]');
     if (f) { e.preventDefault(); toggleFav(f.getAttribute('data-fav')); return; }
+    var dt = e.target.closest('[data-detail]');
+    if (dt) { e.preventDefault(); openDetail(findPlace(dt.getAttribute('data-detail'))); return; }
+    var sh = e.target.closest('[data-share]');
+    if (sh) { e.preventDefault(); sharePlace(findPlace(sh.getAttribute('data-share'))); return; }
     var a = e.target.closest('[data-action]');
     if (!a) return;
     var act = a.getAttribute('data-action');
@@ -643,7 +715,13 @@
       return Promise.all([ad, kw]).then(function (r) { return r[0].concat(r[1]); });
     });
   }
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !els.sheet.hidden) closeSheet(); });
+  els.detail.addEventListener('click', function (e) { if (e.target.closest('[data-close-detail]')) closeDetail(); });
+  els.detailShare.addEventListener('click', function () { sharePlace(detailPlace); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!els.detail.hidden) closeDetail();
+    else if (!els.sheet.hidden) closeSheet();
+  });
 
   // 헤더 높이 → 카테고리 칩 sticky 위치
   var header = document.querySelector('.app-header');

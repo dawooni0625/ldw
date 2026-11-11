@@ -77,6 +77,7 @@
 .icon-settings      { --i: url('icons/user/settings.svg'); }
 .icon-check         { --i: url('icons/action/check.svg'); }
 .icon-external-link { --i: url('icons/navigation/external-link.svg'); }
+.icon-share         { --i: url('icons/action/share.svg'); }
 .icon-search        { --i: url('icons/navigation/search.svg'); }
 .icon-alert-triangle{ --i: url('icons/notification/alert-triangle.svg'); }
 .icon-alert-circle  { --i: url('icons/notification/alert-circle.svg'); }
@@ -208,7 +209,8 @@ ul { list-style: none; }
   color: var(--accent); background: var(--accent-soft);
 }
 .place__meta { display: flex; gap: 6px; margin-top: 2px; font-size: 14px; color: var(--text-3); }
-.place__dist { color: var(--text-2); font-weight: 600; }
+.place__meta > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.place__dist { flex-shrink: 0; white-space: nowrap; color: var(--text-2); font-weight: 600; }
 .place__addr { display: block; margin-top: 1px; font-size: 13px; color: var(--text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fav-btn {
   flex-shrink: 0;
@@ -219,6 +221,7 @@ ul { list-style: none; }
 }
 .fav-btn:active { transform: scale(0.8); }
 .fav-btn[aria-pressed="true"] { color: var(--yellow); }
+.share-btn { width: 36px; margin-right: -6px; }
 
 /* 비어있음 / 로딩 */
 .empty {
@@ -331,7 +334,8 @@ ul { list-style: none; }
 }
 .result__name { margin-top: 10px; font-size: 26px; font-weight: 800; line-height: 1.25; letter-spacing: -0.03em; word-break: keep-all; }
 .result__meta { margin-top: 6px; font-size: 15px; color: var(--text-3); }
-.result__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 22px; }
+.result__actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 22px; }
+.result__actions .btn { padding-left: 8px; padding-right: 8px; white-space: nowrap; }
 .result__actions .btn--full { grid-column: 1 / -1; }
 .result__actions a.btn { text-decoration: none; }
 .result__actions [data-fav][aria-pressed="true"] .icon { color: var(--yellow); }
@@ -489,3 +493,26 @@ ul { list-style: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; transition-duration: 1ms !important; }
 }
+
+/* ---------- 가게 상세 (카카오 장소 페이지) ---------- */
+.sheet--detail .sheet__panel {
+  height: 92vh; height: 92dvh; max-height: none; overflow: hidden;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+.detail__head { min-width: 0; }
+.detail__head h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.detail__meta { margin-top: 2px; font-size: 14px; color: var(--text-3); }
+.detail__hint { font-size: 13px; color: var(--text-3); }
+.detail__hint b { color: var(--accent); }
+.detail__frame {
+  position: relative; flex: 1; min-height: 0;
+  border-radius: var(--r-md); overflow: hidden;
+  background: #fff; border: 1px solid var(--line);
+}
+.detail__frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+.detail__loading {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: #8b8f99;
+}
+.detail__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.detail__actions a.btn { text-decoration: none; }

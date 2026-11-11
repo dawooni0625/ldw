@@ -143,6 +143,29 @@
       </div>
     </div>
 
+    <!-- 가게 상세 시트 (카카오 장소 페이지) -->
+    <div class="sheet sheet--detail" id="detail" hidden>
+      <div class="sheet__dim" data-close-detail></div>
+      <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <div class="sheet__head">
+          <div class="detail__head">
+            <h2 id="detailTitle"></h2>
+            <p class="detail__meta" id="detailMeta"></p>
+          </div>
+          <button type="button" class="icon-btn" data-close-detail aria-label="닫기"><span class="icon icon-md icon-x"></span></button>
+        </div>
+        <p class="detail__hint"><b>메뉴</b>가 바로 보여요 · 위쪽 <b>홈</b> 탭에서 영업시간도 확인할 수 있어요</p>
+        <div class="detail__frame">
+          <p class="detail__loading">가게 정보를 불러오는 중…</p>
+          <iframe id="detailFrame" title="가게 상세 정보" referrerpolicy="no-referrer"></iframe>
+        </div>
+        <div class="detail__actions">
+          <a class="btn btn--ghost" id="detailOpen" href="#" target="_blank" rel="noopener"><span class="icon icon-xs icon-external-link"></span>카카오맵에서 열기</a>
+          <button type="button" class="btn btn--primary" id="detailShare"><span class="icon icon-xs icon-share"></span>공유</button>
+        </div>
+      </div>
+    </div>
+
     <div class="toast" id="toast" role="status" hidden></div>
   </div>
 

@@ -1,5 +1,5 @@
 // 앱 셸 캐시: 네트워크 우선, 오프라인이면 캐시 사용. 카카오 API 요청은 건드리지 않음.
-const CACHE = 'lunch-v3';
+const CACHE = 'lunch-v5';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'config.js', 'manifest.webmanifest', 'app-icon.svg'];
 
 self.addEventListener('install', (e) => {
